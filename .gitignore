@@ -19,6 +19,15 @@
 
 # production
 /build
+/dist/
+/.vite/
+
+# generated search artifacts
+public/pagefind/
+public/_pagefind/
+public/search-index.json
+.cache/
+*.pagefind
 
 # misc
 .DS_Store
@@ -31,7 +40,19 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+# 环境变量文件（包含敏感信息）
+.env
+.env.local
+.env.development
+.env.production
+.profile-models.json
+
+# 但保留示例文件
+!.env.example
+
+# local database files containing private task and habit data
+action-db.json
+
 
 # vercel
 .vercel
@@ -39,3 +60,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE / tools
+.specstory/
+
+# wrangler
+.wrangler/
+
+# local secrets
+.dev.vars
+
+# vinext
+/.vinext/

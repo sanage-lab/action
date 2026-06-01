@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FAF9F6;
+  --foreground: #111111;
+  --primary: #1F4D3A;
+  --primary-light: #245C47;
+  --neutral-dark: #111111;
+  --neutral-333: #333333;
+  --neutral-666: #666666;
+  --neutral-999: #999999;
+  --neutral-light: #E5E5E5;
+  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-neutral-dark: var(--neutral-dark);
+  --color-neutral-333: var(--neutral-333);
+  --color-neutral-666: var(--neutral-666);
+  --color-neutral-999: var(--neutral-999);
+  --color-neutral-light: var(--neutral-light);
+  --font-sans: var(--font-inter), "PingFang SC", "MiSans", system-ui, -apple-system, sans-serif;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
+
+/* Custom Scrollbar for Calm Aesthetic */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--neutral-light);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neutral-999);
+}
+
+/* Satisfying Premium Completion Micro-Animations (<150ms initial burst) */
+@keyframes checkBurst {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(31, 77, 58, 0.5);
+  }
+  35% {
+    transform: scale(1.22);
+    box-shadow: 0 0 0 6px rgba(31, 77, 58, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(31, 77, 58, 0);
+  }
+}
+
+@keyframes taskComplete {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+  30% {
+    transform: translateY(-2px) scale(1.005);
+    background-color: rgba(31, 77, 58, 0.03);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+}
+
+.animate-check-burst {
+  animation: checkBurst 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-task-complete {
+  animation: taskComplete 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+

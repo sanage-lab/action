@@ -1,0 +1,9 @@
+name = "action-os"
+compatibility_date = "2026-04-01"
+pages_build_output_dir = ".next"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "action-db"
+database_id = "local-d1-db"
+database_internal_env = "production"
