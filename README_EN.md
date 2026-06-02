@@ -3,6 +3,8 @@
 > **Describe what you want. Get the next action.**  
 > *输入你想完成的事情，AI 帮你找到下一步行动。*
 
+📖 [中文 README](./README.md)
+
 ---
 
 **ActionOS** is a **Personal Execution OS** designed to reduce cognitive load, overcome procrastination, and eliminate productivity anxiety. It is not just another task manager, but an "attention defense barrier" combining behavioral science, cognitive psychology, and Large Language Models (LLMs).
@@ -51,8 +53,8 @@ Run your own Personal Execution System locally in three steps:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/action-os.git
-cd action-os
+git clone https://github.com/sanage-lab/action.git
+cd action
 ```
 
 ### 2. Configure Environment Variables

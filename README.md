@@ -3,6 +3,8 @@
 > **输入你想完成的事情，AI 帮你找到下一步行动。**  
 > *Describe what you want. Get the next action.*
 
+📖 [English README](./README_EN.md)
+
 ---
 
 **ActionOS** 是一款专为降低认知负荷、克服拖延与焦虑而设计的 **个人执行系统 (Personal Execution OS)**。它不仅是一个任务管理工具，更是一个结合了行为科学、认知心理学与大语言模型（LLM）的“注意力防御屏障”。
@@ -51,8 +53,8 @@
 
 ### 1. 克隆仓库
 ```bash
-git clone https://github.com/your-username/action-os.git
-cd action-os
+git clone https://github.com/sanage-lab/action.git
+cd action
 ```
 
 ### 2. 配置环境变量
