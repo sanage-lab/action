@@ -1,9 +1,10 @@
 import { DecomposeResponse, AIProvider } from '../types';
+import type { DecomposeContext } from '../decomposeContext';
 
 export class MockProvider implements AIProvider {
   public name = 'mock';
 
-  public async decompose(inputText: string): Promise<DecomposeResponse> {
+  public async decompose(inputText: string, _context?: DecomposeContext): Promise<DecomposeResponse> {
     // Simulate minor network delay
     await new Promise(resolve => setTimeout(resolve, 800));
 
@@ -23,7 +24,7 @@ export class MockProvider implements AIProvider {
         { title: '检查网站在 Google Console 里的索引情况', estimated_minutes: 15, priority: 'P1', done_criteria: '完成 Search Console 仪表盘最近 30 天爬取状态截图校验' },
         { title: '配置多语言路由和 HTML Lang 标签', estimated_minutes: 20, priority: 'P2', done_criteria: '页面源代码中包含 lang="zh" 或 lang="en" 属性' },
         { title: '撰写 3 个核心页面的 Meta Description', estimated_minutes: 15, priority: 'P1', done_criteria: '首页及关于页的 description 字段包含目标关键词且在 150 字内' },
-        { title: '到菜市场采购整只土鸡和晚餐食材', estimated_minutes: 30, priority: 'P3', done_criteria: '购买齐备鸡肉、煎蛋用蛋与青菜等晚餐主要原料' }
+        { title: '到菜市场采购整只土鸡和晚餐食材', estimated_minutes: 30, priority: 'P1', done_criteria: '购买齐备鸡肉、煎蛋用蛋与青菜等晚餐主要原料' }
       ];
     } else if (text.includes('健身') || text.includes('运动') || text.includes('跑')) {
       detectedEntityTitle = "恢复运动状态";

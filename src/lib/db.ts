@@ -1,151 +1,102 @@
-import fs from 'fs';
-import path from 'path';
+import type {
+  DatabaseSchema,
+  Entity,
+  HistoryLog,
+  Routine,
+  Task,
+  Draft,
+} from '@/lib/db/types';
+import { getStorage } from '@/lib/storage/jsonFileStorage';
 
-// Define the Data Schemas matching schema.sql
-export interface Entity {
-  id: string;
-  type: 'project' | 'goal' | 'habit' | 'asset';
-  title: string;
-  description?: string;
-  created_at: string;
-  today_focus?: string;
-  why_focus?: string;
+export type { DatabaseSchema, Entity, HistoryLog, Routine, Task, Draft } from '@/lib/db/types';
+
+function readDb(): DatabaseSchema {
+  const db = getStorage().read();
+  if (!db.drafts) {
+    db.drafts = [];
+  }
+  return db;
 }
 
-export interface Task {
-  id: string;
-  entity_id?: string;
-  title: string;
-  estimated_minutes: number;
-  priority: 'P1' | 'P2' | 'P3';
-  status: 'pending' | 'started' | 'completed';
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  done_criteria?: string;
+function writeDb(data: DatabaseSchema): void {
+  getStorage().write(data);
 }
 
-export interface Routine {
-  id: string;
-  title: string;
-  frequency: 'daily' | 'weekly' | 'workday' | 'mon_wed_fri' | 'custom';
-  created_at: string;
-  anchor_time: '起床后' | '早餐后' | '午餐后' | '工作结束后' | '晚餐后' | '睡前' | string;
-  estimated_minutes: number;
-  allowed_miss_days: number;
-  completion_phrase?: string;
-  workflow_steps?: string; // stringified JSON array: Array<{ step_num: number; title: string; minutes: number }>
-  streak_days: number;
-  last_completed_at?: string;
+function localDateStr(iso?: string): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-CA');
 }
 
-export interface HistoryLog {
-  id: string;
-  input_text: string;
-  ai_response?: string;
-  created_at: string;
+function daysBetween(a: string, b: string): number {
+  const da = new Date(a + 'T12:00:00');
+  const db = new Date(b + 'T12:00:00');
+  return Math.round((db.getTime() - da.getTime()) / 86400000);
 }
 
-interface DatabaseSchema {
-  entities: Entity[];
-  tasks: Task[];
-  routines: Routine[];
-  history_logs: HistoryLog[];
-}
-
-const DB_FILE_PATH = path.join(process.cwd(), 'action-db.json');
-
-// Default Seed Data matching schema.sql
-const DEFAULT_SEED_DATA: DatabaseSchema = {
-  entities: [],
-  tasks: [],
-  routines: [],
-  history_logs: []
-};
-
-// Thread-safe Database Service for Local JSON
 export class LocalDatabase {
-  private static read(): DatabaseSchema {
-    try {
-      if (!fs.existsSync(DB_FILE_PATH)) {
-        fs.writeFileSync(DB_FILE_PATH, JSON.stringify(DEFAULT_SEED_DATA, null, 2), 'utf-8');
-        return DEFAULT_SEED_DATA;
-      }
-      const data = fs.readFileSync(DB_FILE_PATH, 'utf-8');
-      const db = JSON.parse(data) as DatabaseSchema;
-
-      // Defensive check: merge seed focus details if missing in existing file
-      let modified = false;
-      db.entities = db.entities.map(ent => {
-        const seed = DEFAULT_SEED_DATA.entities.find(s => s.id === ent.id);
-        if (seed && (!ent.today_focus || !ent.why_focus)) {
-          modified = true;
-          return {
-            ...ent,
-            today_focus: ent.today_focus || seed.today_focus,
-            why_focus: ent.why_focus || seed.why_focus
-          };
-        }
-        return ent;
-      });
-
-      if (modified) {
-        this.write(db);
-      }
-
-      return db;
-    } catch (error) {
-      console.error('Failed to read database file, returning default seed:', error);
-      return DEFAULT_SEED_DATA;
-    }
-  }
-
-  private static write(data: DatabaseSchema): void {
-    try {
-      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (error) {
-      console.error('Failed to write database file:', error);
-    }
-  }
-
   // --- Entities CRUD ---
   public static getEntities(): Entity[] {
-    const db = this.read();
-    return db.entities;
+    return readDb().entities;
   }
 
-  public static addEntity(entity: Omit<Entity, 'created_at'>): Entity {
-    const db = this.read();
+  public static addEntity(
+    entity: Omit<Entity, 'created_at' | 'status'> & { status?: 'active' | 'archived' },
+  ): Entity {
+    const db = readDb();
     const newEntity: Entity = {
       ...entity,
-      created_at: new Date().toISOString()
+      status: entity.status || 'active',
+      created_at: new Date().toISOString(),
     };
     db.entities.push(newEntity);
-    this.write(db);
+    writeDb(db);
     return newEntity;
+  }
+
+  public static updateEntity(
+    id: string,
+    updates: Partial<Pick<Entity, 'title' | 'description' | 'today_focus' | 'why_focus' | 'status' | 'type' | 'last_action_at'>>,
+  ): Entity | null {
+    const db = readDb();
+    const index = db.entities.findIndex((e) => e.id === id);
+    if (index === -1) return null;
+
+    db.entities[index] = { ...db.entities[index], ...updates };
+    writeDb(db);
+    return db.entities[index];
+  }
+
+  public static updateEntityStatus(id: string, status: 'active' | 'archived'): Entity | null {
+    return this.updateEntity(id, { status });
+  }
+
+  public static findEntityByTitle(title: string): Entity | undefined {
+    const normalized = title.toLowerCase().trim();
+    return readDb().entities.find((e) => e.title.toLowerCase().trim() === normalized);
   }
 
   // --- Tasks CRUD ---
   public static getTasks(): Task[] {
-    const db = this.read();
-    return db.tasks;
+    return readDb().tasks;
   }
 
-  public static addTask(task: Omit<Task, 'created_at' | 'status'>): Task {
-    const db = this.read();
+  public static addTask(task: Omit<Task, 'created_at' | 'status'> & { status?: Task['status'] }): Task {
+    const db = readDb();
+    const maxSortOrder = db.tasks.reduce((max, t) => Math.max(max, t.sort_order ?? 0), 0);
     const newTask: Task = {
       ...task,
-      status: 'pending',
-      created_at: new Date().toISOString()
+      status: task.status || 'pending',
+      sort_order: task.sort_order !== undefined ? task.sort_order : (maxSortOrder + 1),
+      created_at: new Date().toISOString(),
     };
     db.tasks.push(newTask);
-    this.write(db);
+    writeDb(db);
     return newTask;
   }
 
-  public static updateTaskStatus(id: string, status: 'pending' | 'started' | 'completed'): Task | null {
-    const db = this.read();
-    const index = db.tasks.findIndex(t => t.id === id);
+  public static updateTaskStatus(id: string, status: Task['status']): Task | null {
+    const db = readDb();
+    const index = db.tasks.findIndex((t) => t.id === id);
     if (index === -1) return null;
 
     const task = db.tasks[index];
@@ -157,21 +108,22 @@ export class LocalDatabase {
     }
 
     db.tasks[index] = task;
-    this.write(db);
+    writeDb(db);
     return task;
   }
 
   public static updateTasksOrder(orderedIds: string[]): void {
-    const db = this.read();
-    const taskMap = new Map(db.tasks.map(t => [t.id, t]));
-    
-    // Reorder based on orderedIds, keeping rest at the end
+    const db = readDb();
+    const taskMap = new Map(db.tasks.map((t) => [t.id, t]));
+
     const reordered: Task[] = [];
     const addedIds = new Set<string>();
+    let currentSortOrder = 1;
 
     for (const id of orderedIds) {
       const task = taskMap.get(id);
       if (task) {
+        task.sort_order = currentSortOrder++;
         reordered.push(task);
         addedIds.add(id);
       }
@@ -179,80 +131,216 @@ export class LocalDatabase {
 
     for (const task of db.tasks) {
       if (!addedIds.has(task.id)) {
+        task.sort_order = task.sort_order !== undefined ? task.sort_order : currentSortOrder++;
         reordered.push(task);
       }
     }
 
     db.tasks = reordered;
-    this.write(db);
+    writeDb(db);
   }
 
-  // --- Routines CRUD ---
+  public static updateTaskDetails(id: string, updates: Partial<Task>): Task | null {
+    const db = readDb();
+    const index = db.tasks.findIndex((t) => t.id === id);
+    if (index === -1) return null;
+
+    db.tasks[index] = { ...db.tasks[index], ...updates };
+    writeDb(db);
+    return db.tasks[index];
+  }
+
+  public static deleteTask(id: string): boolean {
+    const db = readDb();
+    const beforeCount = db.tasks.length;
+    db.tasks = db.tasks.filter((t) => t.id !== id);
+    writeDb(db);
+    return db.tasks.length < beforeCount;
+  }
+
+  public static autoMoveOldTasksToBacklog(): void {
+    const db = readDb();
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    let changed = false;
+    db.tasks = db.tasks.map((task) => {
+      if (task.status !== 'completed' && task.status !== 'backlog') {
+        const createdDateStr = new Date(task.created_at).toLocaleDateString('en-CA');
+        if (createdDateStr !== todayStr) {
+          changed = true;
+          return {
+            ...task,
+            status: 'backlog',
+            backlog_reason: 'deferred',
+          };
+        }
+      }
+      return task;
+    });
+    if (changed) {
+      writeDb(db);
+    }
+  }
+
+  // --- Routines (fixed habits) CRUD ---
   public static getRoutines(): Routine[] {
-    const db = this.read();
-    return db.routines;
+    return readDb().routines;
+  }
+
+  public static findRoutineByTitle(title: string): Routine | undefined {
+    const normalized = title.toLowerCase().trim();
+    return readDb().routines.find((r) => r.title.toLowerCase().trim() === normalized);
   }
 
   public static addRoutine(routine: Omit<Routine, 'created_at' | 'streak_days'>): Routine {
-    const db = this.read();
+    const db = readDb();
     const newRoutine: Routine = {
       ...routine,
       streak_days: 0,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
     db.routines.push(newRoutine);
-    this.write(db);
+    writeDb(db);
     return newRoutine;
   }
 
+  public static shouldDoToday(routine: Routine, date: Date = new Date()): boolean {
+    const freq = routine.frequency;
+    const today = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    if (freq === 'daily') return true;
+    if (freq === 'workday') return today >= 1 && today <= 5;
+    if (freq === 'mon_wed_fri') return [1, 3, 5].includes(today);
+    if (freq === 'weekly') {
+      const last = routine.last_completed_at;
+      if (!last) return true;
+      const lastCompStr = new Date(last).toLocaleDateString('en-CA');
+      const dateStr = date.toLocaleDateString('en-CA');
+      return daysBetween(lastCompStr, dateStr) >= 7;
+    }
+    return true;
+  }
+
   public static toggleRoutineCompletion(id: string): Routine | null {
-    const db = this.read();
-    const index = db.routines.findIndex(r => r.id === id);
+    const db = readDb();
+    const index = db.routines.findIndex((r) => r.id === id);
     if (index === -1) return null;
 
     const routine = db.routines[index];
-    const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local format
-    const lastCompStr = routine.last_completed_at ? new Date(routine.last_completed_at).toLocaleDateString('en-CA') : '';
-
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const lastCompStr = localDateStr(routine.last_completed_at);
     const isCompletedToday = lastCompStr === todayStr;
 
     if (isCompletedToday) {
-      // Uncheck: clear completion date, decrement streak safely
       routine.last_completed_at = undefined;
       routine.streak_days = Math.max(0, routine.streak_days - 1);
     } else {
-      // Check: set completion date to now, increment streak
+      if (!routine.last_completed_at) {
+        routine.streak_days = 1;
+      } else {
+        // Calculate missed scheduled days since last completion
+        let missedScheduledDays = 0;
+        let current = new Date(routine.last_completed_at);
+        current.setDate(current.getDate() + 1);
+        const todayDate = new Date();
+        current.setHours(12, 0, 0, 0);
+        todayDate.setHours(12, 0, 0, 0);
+
+        while (current.getTime() < todayDate.getTime()) {
+          if (this.shouldDoToday(routine, current)) {
+            missedScheduledDays++;
+          }
+          current.setDate(current.getDate() + 1);
+        }
+
+        if (missedScheduledDays > routine.allowed_miss_days) {
+          routine.streak_days = 1;
+        } else {
+          routine.streak_days = (routine.streak_days || 0) + 1;
+        }
+      }
       routine.last_completed_at = new Date().toISOString();
-      routine.streak_days = (routine.streak_days || 0) + 1;
+
+      if (routine.entity_id) {
+        const entIndex = db.entities.findIndex((e) => e.id === routine.entity_id);
+        if (entIndex !== -1) {
+          db.entities[entIndex].last_action_at = new Date().toISOString();
+        }
+      }
     }
 
     db.routines[index] = routine;
-    this.write(db);
+    writeDb(db);
     return routine;
   }
 
   public static deleteRoutine(id: string): boolean {
-    const db = this.read();
+    const db = readDb();
     const beforeCount = db.routines.length;
-    db.routines = db.routines.filter(r => r.id !== id);
-    this.write(db);
+    db.routines = db.routines.filter((r) => r.id !== id);
+    writeDb(db);
     return db.routines.length < beforeCount;
+  }
+
+  public static updateRoutineDetails(id: string, updates: Partial<Routine>): Routine | null {
+    const db = readDb();
+    const index = db.routines.findIndex((r) => r.id === id);
+    if (index === -1) return null;
+    db.routines[index] = { ...db.routines[index], ...updates };
+    writeDb(db);
+    return db.routines[index];
+  }
+
+
+  // --- Drafts CRUD ---
+  public static getDrafts(): Draft[] {
+    return readDb().drafts || [];
+  }
+
+  public static addDraft(content: string): Draft {
+    const db = readDb();
+    const newDraft: Draft = {
+      id: `draft-${Date.now()}`,
+      content: content.trim(),
+      created_at: new Date().toISOString(),
+    };
+    db.drafts = db.drafts || [];
+    db.drafts.push(newDraft);
+    writeDb(db);
+    return newDraft;
+  }
+
+  public static deleteDraft(id: string): boolean {
+    const db = readDb();
+    db.drafts = db.drafts || [];
+    const beforeCount = db.drafts.length;
+    db.drafts = db.drafts.filter((d) => d.id !== id);
+    writeDb(db);
+    return db.drafts.length < beforeCount;
+  }
+
+  public static updateDraft(id: string, content: string): Draft | null {
+    const db = readDb();
+    db.drafts = db.drafts || [];
+    const index = db.drafts.findIndex((d) => d.id === id);
+    if (index === -1) return null;
+    db.drafts[index].content = content.trim();
+    writeDb(db);
+    return db.drafts[index];
   }
 
   // --- History Log ---
   public static getHistoryLogs(): HistoryLog[] {
-    const db = this.read();
-    return db.history_logs;
+    return readDb().history_logs;
   }
 
   public static addHistoryLog(log: Omit<HistoryLog, 'created_at'>): HistoryLog {
-    const db = this.read();
+    const db = readDb();
     const newLog: HistoryLog = {
       ...log,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
-    db.history_logs.unshift(newLog); // Put latest logs first
-    this.write(db);
+    db.history_logs.unshift(newLog);
+    writeDb(db);
     return newLog;
   }
 }
+

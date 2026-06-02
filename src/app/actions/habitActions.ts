@@ -8,10 +8,26 @@ import { revalidatePath } from 'next/cache';
  */
 export async function createHabit(habitData: Omit<Routine, 'id' | 'created_at' | 'streak_days'>) {
   try {
+    const title = habitData.title.trim();
+    let entityId = '';
+    const existingEntity = LocalDatabase.findEntityByTitle(title);
+    if (existingEntity && existingEntity.type === 'habit') {
+      entityId = existingEntity.id;
+    } else {
+      const newEntity = LocalDatabase.addEntity({
+        id: `ent-habit-${Date.now()}`,
+        type: 'habit',
+        title,
+        description: `日常习惯 ${title} 的实体绑定`,
+      });
+      entityId = newEntity.id;
+    }
+
     const id = `habit-${Date.now()}`;
     const newHabit = LocalDatabase.addRoutine({
       id,
-      ...habitData
+      ...habitData,
+      entity_id: entityId
     });
     
     revalidatePath('/');
@@ -21,6 +37,7 @@ export async function createHabit(habitData: Omit<Routine, 'id' | 'created_at' |
     return { success: false, error: error.message || 'Failed to create habit.' };
   }
 }
+
 
 /**
  * Server action to toggle a habit's daily completion status (self-healing date based)

@@ -1,6 +1,8 @@
 import { generateObject, generateText } from 'ai';
 import { DecomposeResponse, DecomposeSchema, AIProvider } from '../types';
 import { SYSTEM_PROMPT } from '../prompt';
+import type { DecomposeContext } from '../decomposeContext';
+import { buildDecomposeContextPrompt } from '../decomposeContext';
 import { google } from '@ai-sdk/google';
 import { anthropic } from '@ai-sdk/anthropic';
 import { openai, createOpenAI } from '@ai-sdk/openai';
@@ -61,13 +63,14 @@ export class VercelSdkProvider implements AIProvider {
     }
   }
 
-  public async decompose(inputText: string): Promise<DecomposeResponse> {
+  public async decompose(inputText: string, context?: DecomposeContext): Promise<DecomposeResponse> {
     const isDeepseek = this.name.toLowerCase() === 'deepseek';
+    const contextBlock = context ? `\n\n${buildDecomposeContextPrompt(context)}` : '';
     try {
       const model = this.getModelInstance();
 
       if (isDeepseek) {
-        const systemPrompt = `${SYSTEM_PROMPT}
+        const systemPrompt = `${SYSTEM_PROMPT}${contextBlock}
 
 You MUST respond with a JSON object ONLY, matching this schema:
 {
@@ -77,12 +80,23 @@ You MUST respond with a JSON object ONLY, matching this schema:
   "why_focus": "string",
   "tasks": [
     {
-      "title": "string starting with an active verb, under 30 minutes",
-      "estimated_minutes": number between 5 and 30,
+      "title": "string starting with an active verb",
+      "estimated_minutes": number between 1 and 120,
       "priority": "P1 | P2 | P3",
-      "done_criteria": "string (the objective definition of finished for this specific action)"
+      "done_criteria": "string",
+      "suggested_start_time": "optional string, e.g. '17:30'"
     }
-  ]
+  ],
+  "backlog_tasks": [
+    {
+      "title": "string starting with an active verb",
+      "estimated_minutes": number between 1 and 120,
+      "priority": "P1 | P2 | P3",
+      "done_criteria": "string",
+      "suggested_start_time": "optional string, e.g. '17:30'"
+    }
+  ],
+  "load_message": "optional string"
 }
 
 Ensure your response is raw JSON only. Do not wrap it in markdown code blocks like \`\`\`json.`;
@@ -112,7 +126,7 @@ Ensure your response is raw JSON only. Do not wrap it in markdown code blocks li
       const { object } = await generateObject({
         model,
         schema: DecomposeSchema,
-        system: SYSTEM_PROMPT,
+        system: `${SYSTEM_PROMPT}${contextBlock}`,
         prompt: `请对以下内容进行认知捕获与原子行动拆解，用户大脑中的混乱输入为：\n\n"${inputText}"`,
       });
       return object;
