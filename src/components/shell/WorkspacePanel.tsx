@@ -663,7 +663,7 @@ export default function WorkspacePanel({ shell }: WorkspacePanelProps) {
             )}
     
             {/* 2.2 Today Focus Card - Answering "为什么做" */}
-            {activeEntity.today_focus && (
+            {activeEntity.today_focus && filteredTasks.some(t => t.status === 'pending' || t.status === 'started') && (
                 <div className="bg-[#FAF9F6] border border-[#1F4D3A]/20 hover:border-[#1F4D3A]/40 rounded-xl p-5 shadow-sm flex items-start space-x-4 transition-all duration-150 bg-gradient-to-r from-[#1F4D3A]/5 to-transparent relative overflow-hidden">
                     <div className="absolute top-0 right-0 h-full w-24 bg-gradient-to-l from-[#1F4D3A]/5 to-transparent pointer-events-none" />
                     <div className="w-12 h-12 rounded-xl bg-[#1F4D3A] flex items-center justify-center text-[#FAF9F6] shrink-0 shadow-sm">

@@ -344,7 +344,12 @@ export default function LeftPanel({ shell }: LeftPanelProps) {
                                     {win.completed_at
                                         ? new Date(
                                               win.completed_at,
-                                          ).toLocaleTimeString()
+                                          ).toLocaleTimeString("zh-CN", {
+                                              hour12: false,
+                                              hour: "2-digit",
+                                              minute: "2-digit",
+                                              second: "2-digit",
+                                          })
                                         : "刚刚"}{" "}
                                     达成
                                 </p>

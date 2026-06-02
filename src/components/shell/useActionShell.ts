@@ -149,7 +149,20 @@ useEffect(() => {
 }, [focusTimerIsRunning, focusTimerSeconds]);
 
 // Active Entity details (dynamically falls back to Today view)
-const defaultEntity = entities.find((e) => e.id === "p1") || entities[0];
+// For the Today view, derive today_focus from the entity that has the
+// highest-priority PENDING task — not from a stale entities[0] field.
+const pendingTasks = tasks.filter(
+    (t) => t.status === "pending" || t.status === "started"
+);
+const priorityOrder = { P1: 0, P2: 1, P3: 2 };
+const topPendingTask = [...pendingTasks].sort(
+    (a, b) =>
+        (priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2) -
+        (priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2)
+)[0];
+const focusEntity = topPendingTask
+    ? entities.find((e) => e.id === topPendingTask.entity_id)
+    : undefined;
 const activeEntity =
     selectedEntityId === "today" || entities.length === 0
         ? {
@@ -158,9 +171,9 @@ const activeEntity =
               title: "今日工作区 (Workspace)",
               description: "整合所有维度的全局行动工作台",
               today_focus:
-                  defaultEntity?.today_focus || "完成今日最值得做的事情",
+                  focusEntity?.today_focus || "完成今日最值得做的事情",
               why_focus:
-                  defaultEntity?.why_focus || "保持小步快跑的行动惯性",
+                  focusEntity?.why_focus || "保持小步快跑的行动惯性",
           }
         : selectedEntityId === "inbox"
         ? {
